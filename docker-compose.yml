@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  mysql_anirise:
+    image: mysql:8.0
+    container_name: mysql_anirise
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3310:3306"
+    volumes:
+      - application_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "mysql_anirise"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    networks:
+      - anirise_network
+
+  backend_anirise:
+    build:
+      context: ./AniRiseBackend
+      dockerfile: Dockerfile
+    image: anirisebackend-backend
+    container_name: backend_anirise
+    restart: on-failure
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION}
+
+      Cloudinary__CloudName: ${CLOUDINARY_CLOUD_NAME}
+      Cloudinary__ApiKey: ${CLOUDINARY_API_KEY}
+      Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET}
+
+      Email__From: ${EMAIL_FROM}
+      Email__SmtpHost: ${EMAIL_SMTP_HOST}
+      Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      Email__SmtpUser: ${EMAIL_SMTP_USER}
+      Email__SmtpPass: ${EMAIL_SMTP_PASS}
+
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+    depends_on:
+      mysql_anirise:
+        condition: service_healthy
+    networks:
+      - anirise_network
+
+  backend_sdk:
+    build:
+      context: ./AniRiseBackend
+      dockerfile: Dockerfile.sdk
+    container_name: backend_sdk
+    working_dir: /app
+    volumes:
+      - ./AniRiseBackend:/app
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION}
+    depends_on:
+      mysql_anirise:
+        condition: service_healthy
+    networks:
+      - anirise_network
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+  frontend_anirise:
+    build:
+      context: ./anirise_frontend
+      dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile.dev}
+    container_name: frontend_anirise
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
+    environment:
+      - ENV_MODE=${ENV_MODE:-development}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    command: ["sh", "-c", "if [ \"$ENV_MODE\" = \"production\" ]; then nginx -g 'daemon off;'; else npm start; fi"]
+    volumes:
+      - ./anirise_frontend/src:/app/src
+      - ./anirise_frontend/public:/app/public
+      - /app/node_modules
+    networks:
+      - anirise_network
+    depends_on:
+      - backend_anirise
+
+volumes:
+  application_mysql_data:
+  node_modules:
+
+networks:
+  anirise_network:
+    driver: bridge
+

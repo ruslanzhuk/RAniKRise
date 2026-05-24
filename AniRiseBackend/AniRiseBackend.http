@@ -1,0 +1,6 @@
+@AniRiseBackend_HostAddress = http://localhost:5195
+
+GET {{AniRiseBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,21 @@
+# env files
+.env
+.env.*
+!.env.example
+
+# secrets
+appsettings.*.json
+!appsettings.Development.json.example
+
+# node
+node_modules/
+dist/
+build/
+
+# dotnet
+bin/
+obj/
+
+# IDE
+.idea/
+.vscode/

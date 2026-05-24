@@ -1,0 +1,8 @@
+# Dockerfile.sdk
+FROM mcr.microsoft.com/dotnet/sdk:9.0
+
+RUN dotnet tool install --global dotnet-ef --version 9.0.1
+
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+WORKDIR /app
